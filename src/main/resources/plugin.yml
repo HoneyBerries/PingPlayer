@@ -14,3 +14,6 @@ permissions:
   pingPlayer.ping:
     description: "This permission allows players to ping another player for latency!"
     default: true
+  pingPlayer.reload:
+    description: "This permission allows players to reload the config"
+    default: op
