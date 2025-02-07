@@ -12,65 +12,50 @@ import java.util.stream.Collectors;
 
 public class PingSettings {
 
-    public static final PingSettings instance = new PingSettings();
+    private static final PingSettings INSTANCE = new PingSettings();
     private File configFile;
     private YamlConfiguration yamlConfig;
-    private ArrayList<Integer> pingTimes = new ArrayList<>();
+    private List<Integer> pingTimes = new ArrayList<>();
 
     private PingSettings() {
-        // singleton pattern
+        // Singleton pattern
     }
 
     public static PingSettings getInstance() {
-        return instance;
+        return INSTANCE;
     }
 
     public void load() {
-        this.configFile = new File(PingPlayer.getInstance().getDataFolder(), "config.yml");
+        configFile = new File(PingPlayer.getInstance().getDataFolder(), "config.yml");
 
         if (!configFile.exists()) {
             PingPlayer.getInstance().saveResource("config.yml", false);
         }
 
-        this.yamlConfig = new YamlConfiguration();
+        yamlConfig = YamlConfiguration.loadConfiguration(configFile);
         yamlConfig.options().parseComments(true);
 
         try {
-            yamlConfig.load(configFile);
+            pingTimes = Arrays.asList(
+                    yamlConfig.getInt("ping-latency.excellent"),
+                    yamlConfig.getInt("ping-latency.good"),
+                    yamlConfig.getInt("ping-latency.medium"),
+                    yamlConfig.getInt("ping-latency.bad")
+            );
         } catch (Exception e) {
-            e.printStackTrace();
-            Bukkit.getLogger().warning("Configuration File failed to be loaded ;(");
+            Bukkit.getLogger().warning("Failed to load latency timings. Defaulting to [50, 100, 200, 300].");
+            pingTimes = Arrays.asList(50, 100, 200, 300);
         }
 
-        //try to write the latency timings to pingTimes
-
-        try {
-            pingTimes.clear();
-            pingTimes.add(yamlConfig.getInt("ping-latency.excellent"));
-            pingTimes.add(yamlConfig.getInt("ping-latency.good"));
-            pingTimes.add(yamlConfig.getInt("ping-latency.medium"));
-            pingTimes.add(yamlConfig.getInt("ping-latency.bad"));
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            this.pingTimes = new ArrayList<>(Arrays.asList(50, 100, 200, 300));
-            Bukkit.getLogger().warning("failed to get the latency timings. " +
-            "Defaulting to 50, 100, 200, and 300 starting from best to worse!");
-
-        }
-
-        Bukkit.getLogger().info("Successfully loaded the config! Latency timings are " + pingTimes.stream()
-                .map(String::valueOf) // Convert each integer to a string
-                .collect(Collectors.joining(", "))); // Join them with a comma and space
+        Bukkit.getLogger().info("Config loaded successfully! Latency timings: " +
+                pingTimes.stream().map(String::valueOf).collect(Collectors.joining(", ")));
     }
-
 
     public void saveConfig() {
         try {
             yamlConfig.save(configFile);
         } catch (Exception e) {
-            e.printStackTrace();
-            Bukkit.getLogger().warning("Configuration File failed to be saved ;(");
+            Bukkit.getLogger().warning("Failed to save configuration file.");
         }
     }
 
@@ -79,22 +64,20 @@ public class PingSettings {
         saveConfig();
     }
 
-
-    public ArrayList<Integer> getPingTimes() {
-        return pingTimes;
+    public List<Integer> getPingTimes() {
+        return new ArrayList<>(pingTimes);
     }
 
-    public void setPingTimes(ArrayList<Integer> pingTimes) {
-        this.pingTimes = pingTimes;
+    public void put(List<Integer> pingTimes) {
+        if (pingTimes.size() != 4) {
+            throw new IllegalArgumentException("Ping times list must contain exactly 4 values.");
+        }
 
-        // Set all the corresponding values from pingTimes list to the config
-        PingSettings.getInstance().set("ping-latency.excellent", pingTimes.get(0));
-        PingSettings.getInstance().set("ping-latency.good", pingTimes.get(1));
-        PingSettings.getInstance().set("ping-latency.medium", pingTimes.get(2));
-        PingSettings.getInstance().set("ping-latency.bad", pingTimes.get(3));
+        this.pingTimes = new ArrayList<>(pingTimes);
 
-        saveConfig();
+        set("ping-latency.excellent", pingTimes.get(0));
+        set("ping-latency.good", pingTimes.get(1));
+        set("ping-latency.medium", pingTimes.get(2));
+        set("ping-latency.bad", pingTimes.get(3));
     }
-
-
 }

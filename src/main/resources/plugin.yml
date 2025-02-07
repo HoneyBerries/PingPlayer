@@ -8,12 +8,13 @@ commands:
     description: "Lets you ping a player to get their latency! If no argument given, then gets your ping!"
     usage: "/ping <playername>"
     aliases: []
-    permission: pingPlayer.ping
+    permission: pingplayer.ping
     permission-message: "You don't have the permission to ping a player!"
 permissions:
-  pingPlayer.ping:
+  pingplayer.ping:
     description: "This permission allows players to ping another player for latency!"
     default: true
-  pingPlayer.reload:
+  pingplayer.reload:
     description: "This permission allows players to reload the config"
     default: op
+

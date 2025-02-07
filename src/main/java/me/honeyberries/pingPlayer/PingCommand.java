@@ -11,12 +11,13 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.net.InetAddress;
 import java.util.*;
 
 public class PingCommand implements CommandExecutor, TabExecutor {
 
-    // Get online player by UUID or username
-    public Player getOnlinePlayer(@NotNull String identifier) {
+    // Retrieves an online player by UUID or username
+    private Player getOnlinePlayer(@NotNull String identifier) {
         try {
             UUID uuid = UUID.fromString(identifier);
             return Bukkit.getPlayer(uuid); // Returns null if player is offline
@@ -25,8 +26,8 @@ public class PingCommand implements CommandExecutor, TabExecutor {
         }
     }
 
-    // Get offline player by UUID or username
-    public OfflinePlayer getOfflinePlayer(@NotNull String identifier) {
+    // Retrieves an offline player by UUID or username
+    private OfflinePlayer getOfflinePlayer(@NotNull String identifier) {
         try {
             UUID uuid = UUID.fromString(identifier);
             return Bukkit.getOfflinePlayer(uuid);
@@ -35,125 +36,111 @@ public class PingCommand implements CommandExecutor, TabExecutor {
         }
     }
 
-
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        Map<String, Integer> pingMap = new HashMap<>();
 
-        Map<String, Integer> pingMaps = new HashMap<>();
-
+        // Handle no arguments
         if (args.length == 0) {
             if (sender instanceof Player player) {
-                pingMaps.put(player.getName(), player.getPing());
-            }
-            else {
-                sender.sendMessage("You need to be a player to use this command without any arguments!");
+                pingMap.put(player.getName(), player.getPing());
+            } else {
+                sender.sendMessage(ChatColor.RED + "You must be a player to use this command without arguments!");
                 return true;
             }
         }
 
+        // Handle one argument
         else if (args.length == 1) {
-
             if (args[0].equalsIgnoreCase("reload")) {
-                if (sender.hasPermission("pingPlayer.reload")) {
+                if (sender.hasPermission("pingplayer.reload")) {
                     PingSettings.getInstance().load();
-                    sender.sendMessage(ChatColor.GREEN + "Reloaded the config!");
-                }
-                else {
-                    sender.sendMessage(ChatColor.RED + "You don't have the permission to reload the config!");
+                    sender.sendMessage(ChatColor.GREEN + "Configuration reloaded successfully!");
+                } else {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to reload the configuration!");
                 }
                 return true;
             }
 
-            else {
-                Player player = getOnlinePlayer(args[0]);
-                if (player == null) {
-                    sender.sendMessage(ChatColor.RED + "Player not found or is offline. Enter a valid username!");
+            Player player = getOnlinePlayer(args[0]);
+            if (player == null) {
+                sender.sendMessage(ChatColor.RED + "Player not found or offline. Please enter a valid username!");
+                return true;
+            }
+
+            pingMap.put(player.getName(), player.getPing());
+        }
+
+        else if (args.length == 2) {
+            if (args[1].equalsIgnoreCase("router")) {
+                Player target = Bukkit.getPlayer(args[0]);
+                if (target == null || !target.isOnline()) {
+                    sender.sendMessage(ChatColor.RED + "Player not found or not online.");
                     return true;
                 }
 
-                else {
-                    pingMaps.put(player.getName(), player.getPing());
-                }
+                // Run the ping task asynchronously
+                Bukkit.getScheduler().runTaskAsynchronously(PingPlayer.getInstance(), new PingRouter(sender, target));
 
             }
-
+            else sender.sendMessage(ChatColor.RED + "Invalid Command Syntax! \nUsage: /ping <playername> <router (optional)>");
         }
 
+        // Handle invalid syntax
         else {
-            sender.sendMessage(ChatColor.RED + "Invalid command syntax! \n " +
-            "Usage: /ping <playername> or /ping reload");
-            return true;
+            sender.sendMessage(ChatColor.RED + "Invalid command syntax!\nUsage: /ping <playername> or /ping reload");
         }
 
-        if (pingMaps.size() == 1) {
-            for (Map.Entry<String, Integer> entry : pingMaps.entrySet()) {
-                //get the player username and latency value
-                String message = getMessage(entry);
-
-                // now send the message to the player
-                sender.sendMessage(message);
-                return true;
-
-            }
-        }
-
-        else {
-            return false;
-        }
-
-        return false;
+        // Send ping results
+        pingMap.forEach((name, ping) -> sender.sendMessage(formatPingMessage(name, ping)));
+        return true;
     }
-
 
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        if (args.length == 1) {
+            String partialName = args[0].toLowerCase();
+            List<String> suggestions = new ArrayList<>();
 
-        if (args.length == 1) { //name of a player
-            String partialPlayerName = args[0];
-            List<String> matchingNames = new ArrayList<>();
+            Bukkit.getOnlinePlayers().stream()
+                    .map(Player::getName)
+                    .filter(name -> name.toLowerCase().startsWith(partialName))
+                    .forEach(suggestions::add);
 
-            //get the list of player suggestions
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getName().toLowerCase().startsWith(partialPlayerName.toLowerCase())) {
-                    matchingNames.add(player.getName()); //returns the suggestion for the players
-                }
-            }
-            matchingNames.add("reload");
-            return matchingNames;
-
+            suggestions.add("reload");
+            return suggestions;
         }
 
-        else {
-            return List.of();
-        }
+        if (args.length == 2)
+            return List.of("router");
 
+        return Collections.emptyList();
     }
 
-    private static @NotNull String getMessage(Map.Entry<String, Integer> entry) {
-        String key = entry.getKey();
-        Integer value = entry.getValue();
+    // Formats the ping message based on latency thresholds
+    private static @NotNull String formatPingMessage(String playerName, int ping) {
+        List<Integer> pingThresholds = PingSettings.getInstance().getPingTimes();
 
-        //get the ping timings for decision-making
-        List<Integer> pingTimings = PingSettings.getInstance().getPingTimes();
+        ChatColor color;
+        String quality;
 
-        //change the color of the message depending on the quality of the connection!
-        String message;
-        if (value < pingTimings.get(0)) {
-            message = ChatColor.GRAY + key + "'s latency is " + ChatColor.GREEN + value + ChatColor.GRAY + " ms, which is excellent!";
+        if (ping < pingThresholds.get(0)) {
+            color = ChatColor.GREEN;
+            quality = "excellent";
+        } else if (ping < pingThresholds.get(1)) {
+            color = ChatColor.YELLOW;
+            quality = "good";
+        } else if (ping < pingThresholds.get(2)) {
+            color = ChatColor.GOLD;
+            quality = "ok";
+        } else if (ping < pingThresholds.get(3)) {
+            color = ChatColor.RED;
+            quality = "bad";
+        } else {
+            color = ChatColor.DARK_RED;
+            quality = "terrible";
         }
-        else if (value < pingTimings.get(1)) {
-            message = ChatColor.GRAY + key + "'s latency is " + ChatColor.YELLOW + value + ChatColor.GRAY + " ms, which is good!";
-        }
-        else if (value < pingTimings.get(2)) {
-            message = ChatColor.GRAY + key + "'s latency is " + ChatColor.GOLD + value + ChatColor.GRAY + " ms, which is ok!";
-        }
-        else if (value < pingTimings.get(3)) {
-            message = ChatColor.GRAY + key + "'s latency is " + ChatColor.RED + value + ChatColor.GRAY + " ms, which is bad!";
-        }
-        else {
-            message = ChatColor.GRAY + key + "'s latency is " + ChatColor.DARK_RED + value + ChatColor.GRAY + " ms, which is terrible!";
-        }
-        return message;
+
+        return ChatColor.GREEN + playerName + ChatColor.GOLD + "'s latency is " + color + ping + ChatColor.GOLD + " ms, which is " + quality + "!";
     }
-
 }
