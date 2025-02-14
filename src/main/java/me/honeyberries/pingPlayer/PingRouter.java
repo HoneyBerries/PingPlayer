@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
 import java.net.InetAddress;
 import java.util.Objects;
 
@@ -37,7 +36,7 @@ public class PingRouter implements Runnable {
                     successfulPings++;
                 }
 
-                Thread.sleep(10); // Wait between pings to simulate real behavior
+                Thread.sleep(100); // Wait between pings to simulate real behavior
             }
 
             long averagePing = (successfulPings > 0) ? (totalPing / successfulPings) : -1;
@@ -45,9 +44,9 @@ public class PingRouter implements Runnable {
             // Send the result back to the main thread
             Bukkit.getScheduler().runTask(PingPlayer.getInstance(), () -> {
                 if (averagePing != -1) {
-                    sender.sendMessage(ChatColor.GOLD + "Average ping to " + ChatColor.GREEN + target.getName() + ChatColor.GOLD + "'s router: " + ChatColor.DARK_PURPLE + averagePing + ChatColor.GOLD + " ms");
+                    sender.sendMessage(ChatColor.GOLD + "Average ping to " + ChatColor.GREEN + target.getName() + ChatColor.GOLD + "'s computer: " + ChatColor.DARK_PURPLE + averagePing + ChatColor.GOLD + " ms");
                 } else {
-                    sender.sendMessage(ChatColor.RED + "Failed to reach " + ChatColor.GREEN + target.getName() + ChatColor.RED + "'s router after " + attempts + " attempts.");
+                    sender.sendMessage(ChatColor.RED + "Failed to reach " + ChatColor.GREEN + target.getName() + ChatColor.RED + "'s computer after " + attempts + " attempts.");
                 }
             });
         } catch (Exception e) {

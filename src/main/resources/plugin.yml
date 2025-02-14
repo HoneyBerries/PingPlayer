@@ -1,5 +1,5 @@
 name: PingPlayer
-version: '1.0.0'
+version: '1.0.1'
 main: me.honeyberries.pingPlayer.PingPlayer
 api-version: '1.13'
 authors: [ HoneyBerries ]

@@ -11,12 +11,20 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.net.InetAddress;
 import java.util.*;
 
+/**
+ * Handles the /ping command, allowing players to check their own or others' latency.
+ * Supports reloading the plugin configuration and checking the router's ping as backup.
+ */
 public class PingCommand implements CommandExecutor, TabExecutor {
 
-    // Retrieves an online player by UUID or username
+    /**
+     * Retrieves an online player by UUID or username.
+     *
+     * @param identifier The UUID (as a string) or username of the player.
+     * @return The online Player object, or null if not found.
+     */
     private Player getOnlinePlayer(@NotNull String identifier) {
         try {
             UUID uuid = UUID.fromString(identifier);
@@ -26,7 +34,12 @@ public class PingCommand implements CommandExecutor, TabExecutor {
         }
     }
 
-    // Retrieves an offline player by UUID or username
+    /**
+     * Retrieves an offline player by UUID or username.
+     *
+     * @param identifier The UUID (as a string) or username of the player.
+     * @return The OfflinePlayer object.
+     */
     private OfflinePlayer getOfflinePlayer(@NotNull String identifier) {
         try {
             UUID uuid = UUID.fromString(identifier);
@@ -36,8 +49,18 @@ public class PingCommand implements CommandExecutor, TabExecutor {
         }
     }
 
+    /**
+     * Executes the /ping command.
+     *
+     * @param sender  The source of the command.
+     * @param command The command which was executed.
+     * @param label   The alias of the command which was used.
+     * @param args    The arguments passed to the command.
+     * @return true if the command was valid, otherwise false.
+     */
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
+                             @NotNull String label, @NotNull String[] args) {
         Map<String, Integer> pingMap = new HashMap<>();
 
         // Handle no arguments
@@ -49,7 +72,6 @@ public class PingCommand implements CommandExecutor, TabExecutor {
                 return true;
             }
         }
-
         // Handle one argument
         else if (args.length == 1) {
             if (args[0].equalsIgnoreCase("reload")) {
@@ -70,7 +92,7 @@ public class PingCommand implements CommandExecutor, TabExecutor {
 
             pingMap.put(player.getName(), player.getPing());
         }
-
+        // Handle two arguments
         else if (args.length == 2) {
             if (args[1].equalsIgnoreCase("router")) {
                 Player target = Bukkit.getPlayer(args[0]);
@@ -81,11 +103,10 @@ public class PingCommand implements CommandExecutor, TabExecutor {
 
                 // Run the ping task asynchronously
                 Bukkit.getScheduler().runTaskAsynchronously(PingPlayer.getInstance(), new PingRouter(sender, target));
-
+            } else {
+                sender.sendMessage(ChatColor.RED + "Invalid Command Syntax! \nUsage: /ping <playername> <router (optional)>");
             }
-            else sender.sendMessage(ChatColor.RED + "Invalid Command Syntax! \nUsage: /ping <playername> <router (optional)>");
         }
-
         // Handle invalid syntax
         else {
             sender.sendMessage(ChatColor.RED + "Invalid command syntax!\nUsage: /ping <playername> or /ping reload");
@@ -96,8 +117,18 @@ public class PingCommand implements CommandExecutor, TabExecutor {
         return true;
     }
 
+    /**
+     * Provides tab completion suggestions for the /ping command.
+     *
+     * @param sender  The source of the command.
+     * @param command The command which was executed.
+     * @param label   The alias of the command which was used.
+     * @param args    The arguments passed to the command.
+     * @return A list of possible completions for the final argument, or null to default to the command executor.
+     */
     @Override
-    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                                @NotNull String label, @NotNull String[] args) {
         if (args.length == 1) {
             String partialName = args[0].toLowerCase();
             List<String> suggestions = new ArrayList<>();
@@ -111,15 +142,22 @@ public class PingCommand implements CommandExecutor, TabExecutor {
             return suggestions;
         }
 
-        if (args.length == 2)
+        if (args.length == 2) {
             return List.of("router");
+        }
 
         return Collections.emptyList();
     }
 
-    // Formats the ping message based on latency thresholds
+    /**
+     * Formats the ping message based on latency thresholds.
+     *
+     * @param playerName The name of the player.
+     * @param ping       The ping value in milliseconds.
+     * @return A formatted string indicating the player's latency and its quality.
+     */
     private static @NotNull String formatPingMessage(String playerName, int ping) {
-        List<Integer> pingThresholds = PingSettings.getInstance().getPingTimes();
+        List<Integer> pingThresholds = PingSettings.getInstance().getPingThresholds();
 
         ChatColor color;
         String quality;
