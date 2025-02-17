@@ -11,6 +11,7 @@ public final class PingPlayer extends JavaPlugin {
         getLogger().info("PingPlayer has been enabled. You can ping players using /ping <playername>");
         PingSettings.getInstance().load();
         Objects.requireNonNull(getServer().getPluginCommand("ping")).setExecutor(new PingCommand());
+        getServer().getPluginManager().registerEvents(new PlayerLoginListener(), this);
 
     }
 

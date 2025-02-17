@@ -1,7 +1,7 @@
 name: PingPlayer
-version: '1.0.1'
+version: '1.0.2'
 main: me.honeyberries.pingPlayer.PingPlayer
-api-version: '1.13'
+api-version: '1.19'
 authors: [ HoneyBerries ]
 commands:
   ping:

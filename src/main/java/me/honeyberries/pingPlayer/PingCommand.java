@@ -142,7 +142,7 @@ public class PingCommand implements CommandExecutor, TabExecutor {
             return suggestions;
         }
 
-        if (args.length == 2) {
+        else if (args.length == 2) {
             return List.of("router");
         }
 
