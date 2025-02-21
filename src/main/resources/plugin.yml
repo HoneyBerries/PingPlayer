@@ -4,17 +4,26 @@ main: me.honeyberries.pingPlayer.PingPlayer
 api-version: '1.19'
 authors: [ HoneyBerries ]
 commands:
+  pingplayer:
+    description: "Admin commands for the Ping Player plugin"
+    usage: "/pingplayer <action>"
+    aliases: [ ]
   ping:
     description: "Lets you ping a player to get their latency! If no argument given, then gets your ping!"
     usage: "/ping <playername>"
-    aliases: []
-    permission: pingplayer.ping
-    permission-message: "You don't have the permission to ping a player!"
+    aliases: [ ]
+  ip:
+    description: Retrieves the IP address of a specified player.
+    aliases: [getip, ipaddress]
+    usage: /ip <player>
 permissions:
   pingplayer.ping:
     description: "This permission allows players to ping another player for latency!"
     default: true
-  pingplayer.reload:
-    description: "This permission allows players to reload the config"
+  pingplayer.ip:
+    description: "Allows you to get the IP address of a player"
+    default: op
+  pingplayer.pingplayer:
+    description: "Allows you to edit the settings of this plugin"
     default: op
 

@@ -1,13 +1,12 @@
 package me.honeyberries.pingPlayer;
 
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Manages the configuration settings for the PingPlayer plugin.
@@ -19,7 +18,8 @@ public class PingSettings {
     private File configFile;
     private YamlConfiguration yamlConfig;
     private List<Integer> pingThresholds;
-    private boolean logIPs;
+    private int packets;
+    private int timeout;
 
     /**
      * Private constructor to enforce Singleton pattern.
@@ -50,20 +50,44 @@ public class PingSettings {
         yamlConfig.options().parseComments(true);
 
         // Load ping latency settings with default values if missing
-        pingThresholds = Arrays.asList(
-            yamlConfig.getInt("ping-thresholds.excellent", 50),
-            yamlConfig.getInt("ping-thresholds.good", 100),
-            yamlConfig.getInt("ping-thresholds.medium", 200),
-            yamlConfig.getInt("ping-thresholds.bad", 300)
-        );
+        try {
+            pingThresholds = Stream.of(
+                    yamlConfig.getInt("ping-thresholds.excellent"),
+                    yamlConfig.getInt("ping-thresholds.good"),
+                    yamlConfig.getInt("ping-thresholds.medium"),
+                    yamlConfig.getInt("ping-thresholds.bad")
+            ).sorted().collect(Collectors.toList());
 
-        // Load log IP setting with a default value if missing
-        logIPs = yamlConfig.getBoolean("log-ip", true);
+            for (int timing : pingThresholds) {
+                if (timing < 0) {
+                    throw new IllegalArgumentException("Ping thresholds must be positive and in-order!");
+                }
 
-        PingPlayer.getInstance().getLogger().info(
-                "Config loaded successfully! \nLatency thresholds: " +
-            pingThresholds.stream().map(String::valueOf).collect(Collectors.joining(", ")) +
-                "\nLog IPs: " + logIPs);
+            }
+        } catch (Exception e) {
+            PingPlayer.getInstance().getLogger().warning("Error loading ping thresholds! " +
+                    "Defaulting to 50, 100, 200, and 300 respectively!");
+        }
+
+        try {
+            packets = yamlConfig.getInt("packets");
+            timeout = yamlConfig.getInt("timeout");
+        } catch (Exception e) {
+            PingPlayer.getInstance().getLogger().warning("Error getting packets and timeout values from config! Defaulting to 4 packets and 3000ms timeout!");
+            packets = 4;
+            timeout = 3000;
+        }
+
+
+        PingPlayer.getInstance().getLogger().info("Config loaded successfully!");
+        PingPlayer.getInstance().getLogger().info("Latency thresholds: " +
+        pingThresholds.stream().map(String::valueOf).collect(Collectors.joining(", ")));
+        PingPlayer.getInstance().getLogger().info("Packets: " + packets);
+        PingPlayer.getInstance().getLogger().info("Timeout: " + timeout + " ms");
+
+
+
+
     }
 
     /**
@@ -88,6 +112,24 @@ public class PingSettings {
         saveConfig();
     }
 
+    public int getPackets() {
+        return packets;
+    }
+
+    public void setPackets(int packets) {
+        this.packets = packets;
+        set("packets", packets);
+    }
+
+    public int getTimeout() {
+        return timeout;
+    }
+
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+        set("timeout", timeout);
+    }
+
     /**
      * Gets the list of ping latency thresholds.
      *
@@ -95,25 +137,6 @@ public class PingSettings {
      */
     public List<Integer> getPingThresholds() {
         return pingThresholds;
-    }
-
-    /**
-     * Checks if IP logging is enabled.
-     *
-     * @return true if logging is enabled, false otherwise
-     */
-    public boolean isLogIPs() {
-        return logIPs;
-    }
-
-    /**
-     * Sets whether IP logging should be enabled.
-     *
-     * @param logIPs true to enable logging, false to disable
-     */
-    public void setLogIPs(boolean logIPs) {
-        this.logIPs = logIPs;
-        set("log-ip", logIPs);
     }
 
     /**
