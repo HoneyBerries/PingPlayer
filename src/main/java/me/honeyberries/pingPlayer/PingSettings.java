@@ -4,22 +4,30 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * Manages the configuration settings for the PingPlayer plugin.
- * This class follows the Singleton pattern to ensure a single instance.
+ * This class follows the Singleton pattern to ensure only a single instance is used throughout the plugin.
  */
 public class PingSettings {
 
+    // Get plugin instance
+    private static final PingPlayer plugin = PingPlayer.getInstance();
+
+    // Singleton instance
     private static final PingSettings INSTANCE = new PingSettings();
+
+    // Default values for configuration settings
+    private static final List<Integer> DEFAULT_THRESHOLDS = Arrays.asList(50, 100, 200, 300);
+
+    // Configuration file and settings
     private File configFile;
     private YamlConfiguration yamlConfig;
     private List<Integer> pingThresholds;
-    private int packets;
-    private int timeout;
 
     /**
      * Private constructor to enforce Singleton pattern.
@@ -38,60 +46,67 @@ public class PingSettings {
 
     /**
      * Loads the configuration from the config.yml file.
+     * If the config file does not exist, it is created from the plugin's resource.
      */
     public void load() {
         configFile = new File(PingPlayer.getInstance().getDataFolder(), "config.yml");
 
+        // Check if the configuration file exists, if not, create it from the resource
         if (!configFile.exists()) {
             PingPlayer.getInstance().saveResource("config.yml", false);
         }
 
+        // Load the configuration file
         yamlConfig = YamlConfiguration.loadConfiguration(configFile);
-        yamlConfig.options().parseComments(true);
+        yamlConfig.options().parseComments(true); // Enable comment parsing in the YAML file
 
-        // Load ping latency settings with default values if missing
-        try {
-            pingThresholds = Stream.of(
-                    yamlConfig.getInt("ping-thresholds.excellent"),
-                    yamlConfig.getInt("ping-thresholds.good"),
-                    yamlConfig.getInt("ping-thresholds.medium"),
-                    yamlConfig.getInt("ping-thresholds.bad")
-            ).sorted().collect(Collectors.toList());
+        // Load specific configuration values
+        loadPingThresholds();
 
-            for (int timing : pingThresholds) {
-                if (timing < 0) {
-                    throw new IllegalArgumentException("Ping thresholds must be positive and in-order!");
-                }
-
-            }
-        } catch (Exception e) {
-            PingPlayer.getInstance().getLogger().warning("Error loading ping thresholds! " +
-                    "Defaulting to 50, 100, 200, and 300 respectively!");
-        }
-
-        try {
-            packets = yamlConfig.getInt("packets");
-            timeout = yamlConfig.getInt("timeout");
-        } catch (Exception e) {
-            PingPlayer.getInstance().getLogger().warning("Error getting packets and timeout values from config! Defaulting to 4 packets and 3000ms timeout!");
-            packets = 4;
-            timeout = 3000;
-        }
-
-
-        PingPlayer.getInstance().getLogger().info("Config loaded successfully!");
-        PingPlayer.getInstance().getLogger().info("Latency thresholds: " +
-        pingThresholds.stream().map(String::valueOf).collect(Collectors.joining(", ")));
-        PingPlayer.getInstance().getLogger().info("Packets: " + packets);
-        PingPlayer.getInstance().getLogger().info("Timeout: " + timeout + " ms");
-
-
-
-
+        // Log the loaded configuration
+        logConfiguration();
     }
 
     /**
-     * Saves the current configuration to the config file.
+     * Loads the ping latency thresholds from the configuration.
+     * It retrieves four thresholds: excellent, good, medium, and bad.
+     * If the values are invalid, default values are used.
+     */
+    private void loadPingThresholds() {
+        try {
+            pingThresholds = Stream.of(
+                            yamlConfig.getInt("ping-thresholds.excellent", DEFAULT_THRESHOLDS.get(0)),
+                            yamlConfig.getInt("ping-thresholds.good", DEFAULT_THRESHOLDS.get(1)),
+                            yamlConfig.getInt("ping-thresholds.medium", DEFAULT_THRESHOLDS.get(2)),
+                            yamlConfig.getInt("ping-thresholds.bad", DEFAULT_THRESHOLDS.get(3))
+                    )
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // Validate that thresholds are non-negative
+            if (pingThresholds.stream().anyMatch(t -> t < 0)) {
+                throw new IllegalArgumentException("Ping thresholds must be non-negative.");
+            }
+        } catch (Exception e) {
+            // In case of an error, use default values
+            PingPlayer.getInstance().getLogger().warning("Error loading ping thresholds! Using default values.");
+            pingThresholds = DEFAULT_THRESHOLDS;
+        }
+    }
+
+    /**
+     * Logs the current configuration values for debugging and verification.
+     * Outputs the loaded ping thresholds.
+     */
+    private void logConfiguration() {
+        PingPlayer.getInstance().getLogger().info("Config loaded successfully!");
+        PingPlayer.getInstance().getLogger().info("Latency thresholds: " +
+                pingThresholds.stream().map(String::valueOf).collect(Collectors.joining(", ")));
+    }
+
+    /**
+     * Saves the current configuration to the config.yml file.
+     * If the save fails, a warning message is logged.
      */
     public void saveConfig() {
         try {
@@ -102,7 +117,7 @@ public class PingSettings {
     }
 
     /**
-     * Sets a value in the configuration and saves it.
+     * Sets a value in the configuration and saves the updated configuration file.
      *
      * @param path  the configuration path
      * @param value the value to set
@@ -112,37 +127,25 @@ public class PingSettings {
         saveConfig();
     }
 
-    public int getPackets() {
-        return packets;
-    }
-
-    public void setPackets(int packets) {
-        this.packets = packets;
-        set("packets", packets);
-    }
-
-    public int getTimeout() {
-        return timeout;
-    }
-
-    public void setTimeout(int timeout) {
-        this.timeout = timeout;
-        set("timeout", timeout);
-    }
-
     /**
-     * Gets the list of ping latency thresholds.
+     * Gets the list of ping latency thresholds from the configuration.
+     * The list contains four values representing different latency levels:
+     * - Excellent
+     * - Good
+     * - Medium
+     * - Bad
      *
-     * @return a list of four integer values representing latency levels
+     * @return a sorted list of four integers representing latency levels
      */
     public List<Integer> getPingThresholds() {
         return pingThresholds;
     }
 
     /**
-     * Sets the latency thresholds for different ping levels.
+     * Sets the ping latency thresholds for the plugin.
+     * The list must contain exactly four values, representing the thresholds for excellent, good, medium, and bad pings.
      *
-     * @param pingThresholds a list of four integer values representing latency levels
+     * @param pingThresholds a list of four integers representing the latency thresholds
      * @throws IllegalArgumentException if the list does not contain exactly four values
      */
     public void setPingThresholds(@NotNull List<Integer> pingThresholds) {
@@ -150,8 +153,10 @@ public class PingSettings {
             throw new IllegalArgumentException("Ping times list must contain exactly 4 values.");
         }
 
-        this.pingThresholds = pingThresholds;
+        // Sort and set the new ping thresholds
+        this.pingThresholds = pingThresholds.stream().sorted().collect(Collectors.toList());
 
+        // Update the configuration file with the new values
         set("ping-thresholds.excellent", pingThresholds.get(0));
         set("ping-thresholds.good", pingThresholds.get(1));
         set("ping-thresholds.medium", pingThresholds.get(2));

@@ -7,8 +7,3 @@ ping-thresholds:
   medium: 200
   bad: 300
 
-# Number of packets to send
-packets: 4
-
-# Timeout duration in milliseconds
-timeout: 3000

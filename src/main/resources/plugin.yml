@@ -1,5 +1,5 @@
 name: PingPlayer
-version: '1.0.2'
+version: '1.0.3'
 main: me.honeyberries.pingPlayer.PingPlayer
 api-version: '1.19'
 authors: [ HoneyBerries ]
@@ -23,7 +23,7 @@ permissions:
   pingplayer.ip:
     description: "Allows you to get the IP address of a player"
     default: op
-  pingplayer.pingplayer:
+  pingplayer.settings:
     description: "Allows you to edit the settings of this plugin"
     default: op
 

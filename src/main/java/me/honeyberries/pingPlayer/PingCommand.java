@@ -11,41 +11,54 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Handles the /ping command to get player ping information
+ * Handles the /ping command to get player ping information.
  */
 public class PingCommand implements CommandExecutor, TabExecutor {
 
-    /**
-     * Executes the /ping command to check player ping
-     *
-     * @param sender the sender of the command
-     * @param command the command being executed
-     * @param label the alias used for the command
-     * @param args the arguments provided with the command
-     * @return true if the command was successfully executed, false otherwise
-     */
+    private final PingPlayer plugin = PingPlayer.getInstance();
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
                              @NotNull String label, @NotNull String[] args) {
 
+        if (!(sender.hasPermission("pingplayer.ping"))) {
+            sender.sendMessage(Component.text("You don't have permission to use this command.", NamedTextColor.RED));
+            return true;
+        }
+
         if (args.length == 0) {
-            handlePingForSender(sender);
+            handlePingForSender(sender); // No arguments: check sender's ping
         } else if (args.length == 1) {
-            handlePingForPlayer(sender, args[0]);
-        } else if (args.length == 2) {
-            handlePingRouterCommand(sender, args);
+            if (args[0].equalsIgnoreCase("help")) {
+                sendHelpMessage(sender);
+            } else {
+                handlePingForPlayer(sender, args[0]);
+            }
         } else {
-            sendInvalidUsageMessage(sender);
+            sendHelpMessage(sender);
         }
         return true;
     }
 
     /**
+     * Sends a help message detailing how to use the /ping command.
+     *
+     * @param sender the sender requesting help
+     */
+    private void sendHelpMessage(CommandSender sender) {
+        sender.sendMessage(Component.text("Usage:\n", NamedTextColor.AQUA)
+                .append(Component.text("/ping - Check your own ping\n", NamedTextColor.GREEN))
+                .append(Component.text("/ping <player> - Check another player's ping\n", NamedTextColor.YELLOW))
+        );
+    }
+
+    /**
      * Handles the case where no arguments are provided and the sender is a player.
-     * It checks the ping of the player sending the command.
      *
      * @param sender the sender of the command
      */
@@ -59,7 +72,6 @@ public class PingCommand implements CommandExecutor, TabExecutor {
 
     /**
      * Handles the case where one argument (player name) is provided.
-     * If it's a player name, it checks their ping.
      *
      * @param sender the sender of the command
      * @param playerName the player name
@@ -74,36 +86,6 @@ public class PingCommand implements CommandExecutor, TabExecutor {
     }
 
     /**
-     * Handles the case where two arguments are provided.
-     * The second argument specifies if the "router" ping test should be performed.
-     *
-     * @param sender the sender of the command
-     * @param args the command arguments
-     */
-    private void handlePingRouterCommand(CommandSender sender, String[] args) {
-        if (args[1].equalsIgnoreCase("router")) {
-            Player target = Bukkit.getPlayer(args[0]);
-            if (target == null || !target.isOnline()) {
-                sender.sendMessage(Component.text("Player not found or not online.", NamedTextColor.RED));
-            } else {
-                Bukkit.getScheduler().runTaskAsynchronously(PingPlayer.getInstance(), new PingRouter(sender, target));
-            }
-        } else {
-            sendInvalidUsageMessage(sender);
-        }
-    }
-
-
-    /**
-     * Sends an invalid usage message to the sender.
-     *
-     * @param sender the sender of the command
-     */
-    private void sendInvalidUsageMessage(CommandSender sender) {
-        sender.sendMessage(Component.text("Invalid command syntax! \nUsage: /ping <playername>", NamedTextColor.RED));
-    }
-
-    /**
      * Sends a formatted ping message to the sender.
      *
      * @param sender the sender of the command
@@ -111,42 +93,30 @@ public class PingCommand implements CommandExecutor, TabExecutor {
      * @param ping the ping of the player
      */
     private void sendPingMessage(CommandSender sender, String playerName, int ping) {
-        Component pingMessage = formatPingMessage(playerName, ping);
+        PingQuality pingQuality = getPingColorAndQuality(ping);
+
+        Component pingMessage = Component.text(playerName + "'s latency is ", NamedTextColor.GREEN)
+                .append(Component.text(ping + " ms, which is " + pingQuality.quality + "!", pingQuality.color));
+
         sender.sendMessage(pingMessage);
+        plugin.getLogger().info(playerName + ": " + pingQuality.quality);
     }
 
     /**
-     * Formats the ping message with appropriate color based on ping value.
+     * Determines the color and quality description for a given ping value.
      *
-     * @param playerName the name of the player
      * @param ping the ping value
-     * @return the formatted ping message
+     * @return a PingQuality object containing the appropriate color and description
      */
-    private static @NotNull Component formatPingMessage(String playerName, int ping) {
+    private PingQuality getPingColorAndQuality(int ping) {
         List<Integer> pingThresholds = PingSettings.getInstance().getPingThresholds();
 
-        NamedTextColor color;
-        String quality;
+        if (ping < pingThresholds.get(0)) return new PingQuality(NamedTextColor.GREEN, "excellent");
+        if (ping < pingThresholds.get(1)) return new PingQuality(NamedTextColor.YELLOW, "good");
+        if (ping < pingThresholds.get(2)) return new PingQuality(NamedTextColor.GOLD, "ok");
+        if (ping < pingThresholds.get(3)) return new PingQuality(NamedTextColor.RED, "bad");
 
-        if (ping < pingThresholds.get(0)) {
-            color = NamedTextColor.GREEN;
-            quality = "excellent";
-        } else if (ping < pingThresholds.get(1)) {
-            color = NamedTextColor.YELLOW;
-            quality = "good";
-        } else if (ping < pingThresholds.get(2)) {
-            color = NamedTextColor.GOLD;
-            quality = "ok";
-        } else if (ping < pingThresholds.get(3)) {
-            color = NamedTextColor.RED;
-            quality = "bad";
-        } else {
-            color = NamedTextColor.DARK_RED;
-            quality = "terrible";
-        }
-
-        return Component.text(playerName + "'s latency is ", NamedTextColor.GREEN)
-                .append(Component.text(ping + " ms, which is " + quality + "!", color));
+        return new PingQuality(NamedTextColor.DARK_RED, "terrible");
     }
 
     /**
@@ -159,21 +129,24 @@ public class PingCommand implements CommandExecutor, TabExecutor {
      * @return a list of tab completion suggestions
      */
     @Override
-    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
-                                                @NotNull String label, @NotNull String[] args) {
-        List<String> suggestions = new ArrayList<>();
-
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 1) {
             String partialName = args[0].toLowerCase();
-            Bukkit.getOnlinePlayers().stream()
-                    .map(Player::getName)
-                    .filter(name -> name.toLowerCase().startsWith(partialName))
-                    .forEach(suggestions::add);
-
-        } else if (args.length == 2) {
-            suggestions.add("router");
+            return Stream.concat(
+                            Bukkit.getOnlinePlayers().stream()
+                                    .map(Player::getName),
+                            Stream.of("help")
+                    )
+                    .filter(option -> option.toLowerCase().startsWith(partialName))
+                    .collect(Collectors.toList());
         }
 
-        return suggestions;
+        return List.of();
+    }
+
+    /**
+     * A simple record class to store ping quality information.
+     */
+    private record PingQuality(NamedTextColor color, String quality) {
     }
 }
