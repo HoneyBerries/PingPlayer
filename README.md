@@ -28,6 +28,7 @@ PingPlayer is a lightweight Minecraft plugin that allows players and server admi
 | `pingplayer.ping` | Allows using the `/ping` command |
 | `pingplayer.ip` | Allows using the `/ip` command |
 | `pingplayer.settings` | Allows using the `/pingplayer` administrative commands |
+| `pingplayer.viewping` | Allows viewing the ping of another player on the tab list |
 
 ## Configuration
 
