@@ -22,7 +22,12 @@ public class TabUpdateTask implements Runnable {
     @Override
     public void run() {
         // Update the tab list for all online players with the permission to view ping
-        Bukkit.getOnlinePlayers().stream().filter(player -> player.hasPermission("pingplayer.viewping")).forEach(this::updateTabListName);
+        if (settings.getShowPingOnTab()) {
+                Bukkit.getOnlinePlayers().stream()
+                    .filter(player -> player.hasPermission("pingplayer.viewping"))
+                    .forEach(this::updateTabListName);
+            }
+
     }
 
     /**
@@ -42,9 +47,8 @@ public class TabUpdateTask implements Runnable {
                 .append(Component.text(" [" + ping + " ms]").color(color));
 
         // Set the player's tab name using the Adventure API
-        if (settings.getShowPingOnTab()) {
-            player.playerListName(formattedTabName);
-        }
+        player.playerListName(formattedTabName);
+
     }
 
     /**
