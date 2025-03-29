@@ -10,7 +10,6 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -116,7 +115,7 @@ public class PingCommand implements CommandExecutor, TabExecutor {
         if (ping < pingThresholds.get(2)) return new PingQuality(NamedTextColor.GOLD, "ok");
         if (ping < pingThresholds.get(3)) return new PingQuality(NamedTextColor.RED, "bad");
 
-        return new PingQuality(NamedTextColor.DARK_RED, "terrible");
+        else return new PingQuality(NamedTextColor.DARK_RED, "terrible");
     }
 
     /**

@@ -28,6 +28,8 @@ public class PingSettings {
     private File configFile;
     private YamlConfiguration yamlConfig;
     private List<Integer> pingThresholds;
+    private Boolean showPingOnTab;
+
 
     /**
      * Private constructor to enforce Singleton pattern.
@@ -63,8 +65,20 @@ public class PingSettings {
         // Load specific configuration values
         loadPingThresholds();
 
+        //Load value for show-ping-on-tab
+
+        try {
+            showPingOnTab = yamlConfig.getBoolean("show-ping-on-tab");
+        } catch (Exception e) {
+            PingPlayer.getInstance().getLogger().warning("Error loading show-ping-on-tab value! Using default value of false.");
+            showPingOnTab = false;
+        }
+
         // Log the loaded configuration
         logConfiguration();
+
+        // Save the configuration file to ensure in the config are up-to-date
+        syncConfiguration();
     }
 
     /**
@@ -75,13 +89,12 @@ public class PingSettings {
     private void loadPingThresholds() {
         try {
             pingThresholds = Stream.of(
-                            yamlConfig.getInt("ping-thresholds.excellent", DEFAULT_THRESHOLDS.get(0)),
-                            yamlConfig.getInt("ping-thresholds.good", DEFAULT_THRESHOLDS.get(1)),
-                            yamlConfig.getInt("ping-thresholds.medium", DEFAULT_THRESHOLDS.get(2)),
-                            yamlConfig.getInt("ping-thresholds.bad", DEFAULT_THRESHOLDS.get(3))
+                    yamlConfig.getInt("ping-thresholds.excellent", DEFAULT_THRESHOLDS.get(0)),
+                    yamlConfig.getInt("ping-thresholds.good", DEFAULT_THRESHOLDS.get(1)),
+                    yamlConfig.getInt("ping-thresholds.medium", DEFAULT_THRESHOLDS.get(2)),
+                    yamlConfig.getInt("ping-thresholds.bad", DEFAULT_THRESHOLDS.get(3))
                     )
-                    .sorted()
-                    .collect(Collectors.toList());
+                    .sorted().collect(Collectors.toList());
 
             // Validate that thresholds are non-negative
             if (pingThresholds.stream().anyMatch(t -> t < 0)) {
@@ -89,7 +102,7 @@ public class PingSettings {
             }
         } catch (Exception e) {
             // In case of an error, use default values
-            PingPlayer.getInstance().getLogger().warning("Error loading ping thresholds! Using default values.");
+            plugin.getLogger().warning("Error loading ping thresholds! Using default values.");
             pingThresholds = DEFAULT_THRESHOLDS;
         }
     }
@@ -99,10 +112,29 @@ public class PingSettings {
      * Outputs the loaded ping thresholds.
      */
     private void logConfiguration() {
-        PingPlayer.getInstance().getLogger().info("Config loaded successfully!");
-        PingPlayer.getInstance().getLogger().info("Latency thresholds: " +
-                pingThresholds.stream().map(String::valueOf).collect(Collectors.joining(", ")));
+
+        plugin.getLogger().info("Config loaded successfully!");
+
+        plugin.getLogger().info("Latency thresholds: " + pingThresholds.stream().map(String::valueOf).collect(Collectors.joining(", ")));
+
+        plugin.getLogger().info("Showing ping on tab: " + showPingOnTab);
+
     }
+
+    /**
+     * Updates the configuration file with the current settings.
+     * This method should be called on configuration load to ensure the file is up to date.
+     */
+    private void syncConfiguration() {
+
+        set("show-ping-on-tab", showPingOnTab);
+        set("ping-thresholds.excellent", pingThresholds.get(0));
+        set("ping-thresholds.good", pingThresholds.get(1));
+        set("ping-thresholds.medium", pingThresholds.get(2));
+        set("ping-thresholds.bad", pingThresholds.get(3));
+        saveConfig();
+    }
+
 
     /**
      * Saves the current configuration to the config.yml file.
@@ -112,7 +144,8 @@ public class PingSettings {
         try {
             yamlConfig.save(configFile);
         } catch (IOException e) {
-            PingPlayer.getInstance().getLogger().warning("Failed to save configuration file.");
+            e.printStackTrace();
+            plugin.getLogger().warning("Failed to save configuration file.");
         }
     }
 
@@ -141,12 +174,33 @@ public class PingSettings {
         return pingThresholds;
     }
 
+
+    /**
+     * Gets the value of show-ping-on-tab from the configuration.
+     *
+     * @return the value of show-ping-on-tab
+     */
+    public Boolean getShowPingOnTab() {
+        return showPingOnTab;
+    }
+
+    /**
+     * Sets the value of show-ping-on-tab in the configuration and saves the updated configuration file.
+     *
+     * @param showPingOnTab the value to set
+     */
+    public void setShowPingOnTab(@NotNull Boolean showPingOnTab) {
+        this.showPingOnTab = showPingOnTab;
+        set("show-ping-on-tab", showPingOnTab);
+    }
+
+
     /**
      * Sets the ping latency thresholds for the plugin.
      * The list must contain exactly four values, representing the thresholds for excellent, good, medium, and bad pings.
      *
      * @param pingThresholds a list of four integers representing the latency thresholds
-     * @throws IllegalArgumentException if the list does not contain exactly four values
+     * @throws IllegalArgumentException if the list doesn't contain exactly four values
      */
     public void setPingThresholds(@NotNull List<Integer> pingThresholds) {
         if (pingThresholds.size() != 4) {

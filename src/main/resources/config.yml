@@ -7,3 +7,4 @@ ping-thresholds:
   medium: 200
   bad: 300
 
+show-ping-on-tab: true

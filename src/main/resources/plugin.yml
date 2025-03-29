@@ -1,8 +1,9 @@
 name: PingPlayer
-version: '1.0.3'
+version: '1.1.0'
 main: me.honeyberries.pingPlayer.PingPlayer
-api-version: '1.19'
+api-version: '1.21'
 authors: [ HoneyBerries ]
+folia-supported: true
 commands:
   pingplayer:
     description: "Admin commands for the Ping Player plugin"
@@ -26,4 +27,7 @@ permissions:
   pingplayer.settings:
     description: "Allows you to edit the settings of this plugin"
     default: op
+  pingplayer.viewping:
+    description: "Allows you to view the ping of another player on the tab list"
+    default: true
 
