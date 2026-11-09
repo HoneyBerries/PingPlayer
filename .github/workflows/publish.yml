@@ -62,7 +62,7 @@ jobs:
 
       - name: Publish to Modrinth
         if: steps.check_release.outputs.exists == 'false'
-        uses: Kir-Antipov/mc-publish@c23376546a97f5ba7984e94445da359459b14419 # v3
+        uses: Kir-Antipov/mc-publish@v3
         with:
           modrinth-id: ${{ env.MODRINTH_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
