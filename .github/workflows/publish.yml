@@ -1,0 +1,90 @@
+name: Publish
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  MODRINTH_ID: 4mxNaSgs
+  MINECRAFT_VERSION: '26.3'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to create the GitHub release
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Read version from pom.xml
+        id: version_info
+        run: |
+          VERSION=$(mvn -B -q -DforceStdout help:evaluate -Dexpression=project.version)
+          case "$VERSION" in
+            *alpha*) TYPE=alpha ;;
+            *beta*)  TYPE=beta ;;
+            *)       TYPE=release ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_type=$TYPE" >> "$GITHUB_OUTPUT"
+
+      # The GitHub release is created LAST, so its existence means this version was
+      # already published everywhere. If a publish fails, no release exists and
+      # re-running the workflow retries it.
+      - name: Check if this version is already released
+        id: check_release
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v$VERSION already exists, skipping publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version_info.outputs.version }}
+
+      - name: Build
+        if: steps.check_release.outputs.exists == 'false'
+        run: mvn -B clean package
+
+      - name: Publish to Modrinth
+        if: steps.check_release.outputs.exists == 'false'
+        uses: Kir-Antipov/mc-publish@v3
+        with:
+          modrinth-id: ${{ env.MODRINTH_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+
+          name: PingPlayer ${{ steps.version_info.outputs.version }}
+          version: ${{ steps.version_info.outputs.version }}
+
+          files: target/pingplayer-${{ steps.version_info.outputs.version }}.jar
+
+          game-versions: ${{ env.MINECRAFT_VERSION }}
+          loaders: |
+            paper
+            folia
+            purpur
+
+          changelog: Release ${{ steps.version_info.outputs.version }}
+          version-type: ${{ steps.version_info.outputs.release_type }}
+
+      - name: Create GitHub release
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          gh release create "v$VERSION" "target/pingplayer-$VERSION.jar" --title "Release $VERSION" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version_info.outputs.version }}
